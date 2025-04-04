@@ -2,10 +2,40 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2021-06
   name: 'octoapplawsbicp'
   location: resourceGroup().location
   properties: {
+    features: {
+      searchVersion: 1
+      disableLocalAuth: true
+    }
     sku: {
       name: 'PerGB2018'
     }
-    retentionInDays: 30
+    retentionInDays: 365
+    workspaceCapping: {
+      dailyQuotaGb: -1
+    }
+    publicNetworkAccessForIngestion: 'Enabled'
+    publicNetworkAccessForQuery: 'Enabled'
+    forceCmkForQuery: true
+  }
+}
+
+resource logAnalyticsWorkspaceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: '${logAnalyticsWorkspace.name}-diagnosticSettings'
+  scope: logAnalyticsWorkspace
+  properties: {
+    workspaceId: logAnalyticsWorkspace.id
+    logs: [
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
   }
 }
 
@@ -23,14 +53,6 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2021-05-01' = {
         name: 'subnet001'
         properties: {
           addressPrefix: '10.0.0.0/24'
-          serviceEndpoints: [
-            {
-              service: 'Microsoft.KeyVault'
-            }
-            {
-              service: 'Microsoft.Storage'
-            }
-          ]
         }
       }
     ]
@@ -38,7 +60,7 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2021-05-01' = {
 }
 
 resource vnetDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${virtualNetwork.name}-diag'
+  name: '${virtualNetwork.name}-diagnosticSettings'
   scope: virtualNetwork
   properties: {
     workspaceId: logAnalyticsWorkspace.id
@@ -63,20 +85,15 @@ resource keyVault 'Microsoft.KeyVault/vaults@2021-10-01' = {
   properties: {
     sku: {
       family: 'A'
-      name: 'standard'
+      name: 'premium'
     }
+    enableSoftDelete: true
+    enablePurgeProtection: true
+    enableRbacAuthorization: true
     tenantId: subscription().tenantId
-    networkAcls: {
-      defaultAction: 'Deny'
-      bypass: 'AzureServices'
-      virtualNetworkRules: [
-        {
-          id: '${virtualNetwork.id}/subnets/subnet001'
-        }
-      ]
-    }
-    publicNetworkAccess: null
     accessPolicies: []
+    networkAcls: null
+    publicNetworkAccess: 'Disabled'
   }
 }
 
@@ -100,7 +117,7 @@ resource keyVaultPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-05-01'
 }
 
 resource keyVaultDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${keyVault.name}-diag'
+  name: '${keyVault.name}-diagnosticSettings'
   scope: keyVault
   properties: {
     workspaceId: logAnalyticsWorkspace.id
@@ -123,19 +140,26 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: 'octoappstrgbicp'
   location: resourceGroup().location
   sku: {
-    name: 'Standard_LRS'
+    name: 'Standard_GRS'
   }
   kind: 'StorageV2'
   properties: {
+    allowSharedKeyAccess: true
+    defaultToOAuthAuthentication: false
+    allowCrossTenantReplication: false
+    isLocalUserEnabled: false
+    supportsHttpsTrafficOnly: true
+    isHnsEnabled: false
+    isSftpEnabled: false
+    isNfsV3Enabled: false
+    largeFileSharesState: 'Disabled'
+    minimumTlsVersion: 'TLS1_2'
     networkAcls: {
-      defaultAction: 'Deny'
       bypass: 'AzureServices'
-      virtualNetworkRules: [
-        {
-          id: '${virtualNetwork.id}/subnets/subnet001'
-        }
-      ]
+      defaultAction: 'Deny'
     }
+    allowBlobPublicAccess: false
+    publicNetworkAccess: 'Disabled'
   }
 }
 
@@ -191,7 +215,7 @@ resource blobStoragePrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-05-
 }
 
 resource storageDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${storageAccount.name}-diag'
+  name: '${storageAccount.name}-diagnosticSettings'
   scope: storageAccount
   properties: {
     workspaceId: logAnalyticsWorkspace.id
@@ -204,19 +228,22 @@ resource storageDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-pr
   }
 }
 
-resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
-  #disable-next-line use-parent-property
-  name: '${storageAccount.name}/default/container001'
-}
-
-resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2021-06-01' = {
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2022-09-01' = {
   parent: storageAccount
   name: 'default'
-  properties: {}
+  properties: {
+    containerDeleteRetentionPolicy: {
+      enabled: true
+    }
+    deleteRetentionPolicy: {
+      enabled: true
+      days: 7
+    }
+  }
 }
 
 resource blobContainerDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${storageAccount.name}-blobServices-diag'
+  name: 'default-diagnosticSettings'
   scope: blobService
   properties: {
     workspaceId: logAnalyticsWorkspace.id
@@ -232,5 +259,13 @@ resource blobContainerDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05
         enabled: true
       }
     ]
+  }
+}
+
+resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  #disable-next-line use-parent-property
+  name: '${storageAccount.name}/default/container001'
+  properties: {
+    publicAccess: 'None'
   }
 }

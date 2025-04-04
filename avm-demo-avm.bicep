@@ -2,6 +2,7 @@ module logAnalyticsWorkspace 'br/public:avm/res/operational-insights/workspace:0
   name: 'log-analytics-workspace-deployment'
   params: {
     name: 'octoapplawsavm'
+    diagnosticSettings: [{ useThisWorkspace: true }]
   }
 }
 
