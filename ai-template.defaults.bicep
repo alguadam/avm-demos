@@ -1,8 +1,8 @@
-module aiTemplateDefaults 'br/public:avm/ptn/ai-platform/baseline:0.6.5' = {
-  name: 'aiTemplateDefaultsDeployment'
+module aiPlatform 'br/public:avm/ptn/ai-platform/baseline:0.6.5' = {
+  name: 'ai-template'
   params: {
     // Required parameters
-    name: 'avmaitemplatepoc'
+    name: 'aiplatformdef'
     // Non-required parameters
     virtualNetworkConfiguration: {
       enabled: false
@@ -16,52 +16,27 @@ module aiTemplateDefaults 'br/public:avm/ptn/ai-platform/baseline:0.6.5' = {
   }
 }
 
-module aiServices 'br/public:avm/res/cognitive-services/account:<version>' = {
-  name: 'accountDeployment'
+module aiServices 'br/public:avm/res/cognitive-services/account:0.10.2' = {
+  name: 'ai-services'
   params: {
     // Required parameters
-    kind: 'Face'
-    name: 'csawaf001'
-    // Non-required parameters
-    customSubDomainName: 'xcsawaf'
-    diagnosticSettings: [
+    kind: 'AIServices'
+    name: 'aisvc-aiplatformdef'
+    publicNetworkAccess: 'Enabled'
+    deployments: [
       {
-        eventHubAuthorizationRuleResourceId: '<eventHubAuthorizationRuleResourceId>'
-        eventHubName: '<eventHubName>'
-        storageAccountResourceId: '<storageAccountResourceId>'
-        workspaceResourceId: '<workspaceResourceId>'
+        name: 'gpt-4o-mini'
+        model: {
+          name: 'gpt-4o-mini'
+          format: 'OpenAI'
+          version: '2024-07-18'
+        }
+        sku: {
+          name: 'GlobalStandard'
+          capacity: 100
+        }
+        raiPolicyName: 'Microsoft.Default'
       }
     ]
-    location: '<location>'
-    lock: {
-      kind: 'CanNotDelete'
-      name: 'myCustomLockName'
-    }
-    managedIdentities: {
-      systemAssigned: true
-    }
-    privateEndpoints: [
-      {
-        privateDnsZoneGroup: {
-          privateDnsZoneGroupConfigs: [
-            {
-              privateDnsZoneResourceId: '<privateDnsZoneResourceId>'
-            }
-          ]
-        }
-        subnetResourceId: '<subnetResourceId>'
-        tags: {
-          Environment: 'Non-Prod'
-          'hidden-title': 'This is visible in the resource name'
-          Role: 'DeploymentValidation'
-        }
-      }
-    ]
-    sku: 'S0'
-    tags: {
-      Environment: 'Non-Prod'
-      'hidden-title': 'This is visible in the resource name'
-      Role: 'DeploymentValidation'
-    }
   }
 }
